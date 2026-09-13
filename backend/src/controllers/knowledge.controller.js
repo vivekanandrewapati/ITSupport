@@ -1,5 +1,6 @@
 import { KnowledgeArticle } from "../models/KnowledgeArticle.model.js";
-import { getVectorFromText } from "../services/embedding.service.js"
+import { getVectorFromText } from "../services/embedding.service.js";
+import { upsertVectors } from "../services/vector.service.js";
 
 export const addknowledge = async (req, res) => {
     try {
@@ -22,6 +23,19 @@ export const addknowledge = async (req, res) => {
         if (vector.length == 0) console.error("embedding not generated");
         console.log(vector.length);
         console.log(vector.slice(0, 10));
+
+        const result = await upsertVectors(vector, knowledgeArticle._id.toString(), {
+            title, content, url
+        });
+
+        if (!result) {
+            console.error("vector upsert failed for id", knowledgeArticle._id);
+            await KnowledgeArticle.findByIdAndDelete(knowledgeArticle._id);
+            return res.status(500).json({
+                success: false,
+                message: "error in adding knowledge"
+            })
+        }
 
         return res.status(201).json({
             success: true,

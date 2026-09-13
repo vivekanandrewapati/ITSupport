@@ -18,8 +18,8 @@ export const upsertVectors = async (values, id, metadata) => {
         return true;
     } catch (error) {
         console.error("Error upserting vectors:", error);
-        return false;
-
+        throw error;
     }
 
 }
+
