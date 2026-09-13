@@ -10,7 +10,7 @@ const startserver = async () => {
             console.log(`server started on port: ${process.env.PORT}`)
         })
     } catch (error) {
-        console.log("failed to start the server")
+        console.log("failed to start the server", error)
     }
 }
 
