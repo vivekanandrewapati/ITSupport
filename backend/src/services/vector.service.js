@@ -23,3 +23,17 @@ export const upsertVectors = async (values, id, metadata) => {
 
 }
 
+export const getSearchResult = async (topK, vector, includeMetadata) => {
+    try {
+        const results = await pineconeIndex.query({
+            topK,
+            vector,
+            includeMetadata: true,
+        });
+        console.log("vector search results ", results);
+        return results;
+    } catch (error) {
+        console.log("Error searching vectors:", error);
+        return [];
+    }
+}

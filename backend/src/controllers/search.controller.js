@@ -1,5 +1,6 @@
 import { pineconeIndex } from "../config/pinecone.js";
 import { getVectorFromText } from "../services/embedding.service.js";
+import { getSearchResult } from "../services/vector.service.js";
 
 
 export const searchQuery = async (req, res) => {
@@ -12,6 +13,8 @@ export const searchQuery = async (req, res) => {
             })
         }
         const vector = await getVectorFromText(query.trim());
+        const topK = process.env.TOP_K;
+        const threshold = process.env.SEARCH_THRESHOLD;
         if (vector.length == 0) {
             console.error("embedding not generated")
             return res.status(500).json({
@@ -19,14 +22,11 @@ export const searchQuery = async (req, res) => {
                 message: "error in generating embeddings"
             })
         }
-        const topK = 3;
-        const results = await pineconeIndex.query({
-            topK,
-            vector,
-            includeMetadata: true,
-        });
+        const includeMetadata = true;
+        const { matches } = await getSearchResult(topK, vector, includeMetadata)
 
-        const filteredResults = (results.matches || []).filter(res => res.score > 0.7);
+
+        const filteredResults = (matches || []).filter(res => res.score > threshold);
         console.log("search results", filteredResults);
         const data = filteredResults.map(res => ({
             id: res.id,
