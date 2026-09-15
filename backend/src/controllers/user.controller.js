@@ -1,4 +1,5 @@
 import { User } from "../models/user.model.js";
+import { generateToken } from "../utils/jwt.js";
 
 
 
@@ -27,10 +28,13 @@ export const login = async (req, res) => {
                 message: "invalid password"
             })
         }
+        const token = await generateToken(oldUser);
+        console.log(token, "jwt token generated after login");
         const userData = { _id: oldUser._id, email: oldUser.email, role: oldUser.role };
         return res.status(200).json({
             success: true,
             message: "user logged in successfully",
+            token,
             data: userData
         })
 
