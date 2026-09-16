@@ -53,3 +53,29 @@ export const addknowledge = async (req, res) => {
 
     }
 }
+
+export const uploadpdf = async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({
+                success: false,
+                message: "PDF file is required. Make sure the form-data key is named 'pdf'"
+            });
+        }
+        console.log("Uploaded file buffer:", req.file.buffer);
+
+        return res.status(200).json({
+            success: true,
+            message: "PDF uploaded successfully",
+            filename: req.file.originalname,
+            size: req.file.size
+        });
+    } catch (error) {
+        console.error("error in uploading pdf:", error);
+        return res.status(500).json({
+            success: false,
+            message: "error in uploading pdf",
+            error: error.message
+        });
+    }
+}
