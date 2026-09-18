@@ -1,6 +1,7 @@
 import { KnowledgeArticle } from "../models/KnowledgeArticle.model.js";
 import { getVectorFromText } from "../services/embedding.service.js";
 import { upsertVectors } from "../services/vector.service.js";
+import { extractPdfText, parseData } from "../services/pdf.service.js";
 
 export const addknowledge = async (req, res) => {
     try {
@@ -62,13 +63,15 @@ export const uploadpdf = async (req, res) => {
                 message: "PDF file is required. Make sure the form-data key is named 'pdf'"
             });
         }
-        console.log("Uploaded file buffer:", req.file.buffer);
+        const documents = await extractPdfText(req.file.buffer);
+        const parsedContent = await parseData(documents);
+
+        console.log("Parsed PDF content:", parsedContent);
 
         return res.status(200).json({
             success: true,
-            message: "PDF uploaded successfully",
-            filename: req.file.originalname,
-            size: req.file.size
+            message: "PDF uploaded and extracted successfully",
+            data: parsedContent
         });
     } catch (error) {
         console.error("error in uploading pdf:", error);
