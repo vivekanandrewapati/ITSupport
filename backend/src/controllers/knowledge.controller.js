@@ -75,7 +75,7 @@ export const uploadpdf = async (req, res) => {
             const knowledgeArticle = await KnowledgeArticle.create({
                 title: article.title,
                 content: article.content,
-                url: article.content
+                url: article.url
             })
 
             const textContent = `${article.title}\n\n${article.content}`;
@@ -87,7 +87,7 @@ export const uploadpdf = async (req, res) => {
             const result = await upsertVectors(vector, knowledgeArticle._id.toString(), {
                 title: article.title,
                 content: article.content,
-                url: article.content
+                url: article.url
             });
 
             if (!result) {
@@ -95,8 +95,10 @@ export const uploadpdf = async (req, res) => {
                 await KnowledgeArticle.findByIdAndDelete(knowledgeArticle._id);
             }
 
-            uploadedArticlesCount++;
-            uploadedData.push(knowledgeArticle);
+            else {
+                uploadedArticlesCount++;
+                uploadedData.push(knowledgeArticle);
+            }
         }
         console.log("uploaded articles count", uploadedArticlesCount);
         console.log("total articles", totalArticles);
