@@ -1,6 +1,6 @@
 import { KnowledgeArticle } from "../models/KnowledgeArticle.model.js";
 import { getVectorFromText } from "../services/embedding.service.js";
-import { upsertVectors } from "../services/vector.service.js";
+import { upsertVectors, findSimilarVector } from "../services/vector.service.js";
 import { extractPdfText, parseData } from "../services/pdf.service.js";
 import { generateFingerprint } from "../services/fingerprint.service.js";
 import { pineconeIndex } from "../config/pinecone.js";
@@ -58,16 +58,7 @@ export const addknowledge = async (req, res) => {
     }
 }
 
-export const findSimilarVector = async (vector) => {
-    const result = await pineconeIndex.query({
-        vector,
-        topK: 1,
-        includeMetadata: true,
-        includeValues: false
-    });
 
-    return result.matches?.[0] || null;
-};
 
 export const uploadpdf = async (req, res) => {
     try {
@@ -88,7 +79,7 @@ export const uploadpdf = async (req, res) => {
         let skippedCount = 0;
         let duplicateArticles = [];
         let skippedArticles = [];
-        const similarityThreshold = process.env.SIMILARITY_THRESHOLD;
+        const similarityThreshold = Number(process.env.SIMILARITY_THRESHOLD);
 
         for (const article of parsedContent) {
             const fingerprint = generateFingerprint({ title: article.title, content: article.content, url: article.url });
@@ -96,13 +87,21 @@ export const uploadpdf = async (req, res) => {
             const textContent = `${article.title}\n\n${article.content}`;
             const vector = await getVectorFromText(textContent);
             const similarVector = await findSimilarVector(vector);
-            if (similarVector.score > similarityThreshold) {
+            if (similarVector && similarVector.score >= similarityThreshold) {
                 skippedCount++;
                 skippedArticles.push(article);
                 continue;
             }
             if (vector.length == 0) {
                 console.error("embedding not generated for pdf ")
+            }
+            const exisitngarticle = await KnowledgeArticle.findOne({
+                fingerprint
+            });
+            if (exisitngarticle) {
+                duplicateCount++;
+                duplicateArticles.push(article);
+                continue;
             }
 
             const knowledgeArticle = await KnowledgeArticle.create({
@@ -111,11 +110,6 @@ export const uploadpdf = async (req, res) => {
                 url: article.url,
                 fingerprint: fingerprint,
             })
-            if (knowledgeArticle) {
-                duplicateCount++;
-                duplicateArticles.push(article);
-                continue;
-            }
 
             const result = await upsertVectors(vector, knowledgeArticle._id.toString(), {
                 title: article.title,

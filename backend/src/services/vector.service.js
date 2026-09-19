@@ -37,3 +37,13 @@ export const getSearchResult = async (topK, vector, includeMetadata) => {
         return [];
     }
 }
+export const findSimilarVector = async (vector) => {
+    const result = await pineconeIndex.query({
+        vector,
+        topK: 1,
+        includeMetadata: true,
+        includeValues: false
+    });
+
+    return result.matches?.[0] || null;
+};
