@@ -67,11 +67,44 @@ export const uploadpdf = async (req, res) => {
         const parsedContent = await parseData(documents);
 
         console.log("Parsed PDF content:", parsedContent);
+        let uploadedArticlesCount = 0;
+        let uploadedData = [];
+        let totalArticles = parsedContent.length;
+
+        for (const article of parsedContent) {
+            const knowledgeArticle = await KnowledgeArticle.create({
+                title: article.title,
+                content: article.content,
+                url: article.content
+            })
+
+            const textContent = `${article.title}\n\n${article.content}`;
+            const vector = await getVectorFromText(textContent);
+            if (vector.length == 0) {
+                console.error("embedding not generated for pdf ")
+            }
+
+            const result = await upsertVectors(vector, knowledgeArticle._id.toString(), {
+                title: article.title,
+                content: article.content,
+                url: article.content
+            });
+
+            if (!result) {
+                console.error("vector upsert failed for id", knowledgeArticle._id);
+                await KnowledgeArticle.findByIdAndDelete(knowledgeArticle._id);
+            }
+
+            uploadedArticlesCount++;
+            uploadedData.push(knowledgeArticle);
+        }
+        console.log("uploaded articles count", uploadedArticlesCount);
+        console.log("total articles", totalArticles);
 
         return res.status(200).json({
             success: true,
-            message: "PDF uploaded and extracted successfully",
-            data: parsedContent
+            message: "pdf uploaded successfully",
+            data: uploadedData,
         });
     } catch (error) {
         console.error("error in uploading pdf:", error);
