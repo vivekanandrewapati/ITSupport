@@ -9,6 +9,12 @@ const knowledgeArticleSchema = new mongoose.Schema({
     },
     url: {
         type: String,
+    },
+    fingerprint: {
+        type: String,
+        index: true,
+        unique: true,
+        required: true
     }
 
 }, { timestamps: true });

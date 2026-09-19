@@ -2,6 +2,9 @@ import { KnowledgeArticle } from "../models/KnowledgeArticle.model.js";
 import { getVectorFromText } from "../services/embedding.service.js";
 import { upsertVectors } from "../services/vector.service.js";
 import { extractPdfText, parseData } from "../services/pdf.service.js";
+import { generateFingerprint } from "../services/fingerprint.service.js";
+import { pineconeIndex } from "../config/pinecone.js";
+import "dotenv/config"
 
 export const addknowledge = async (req, res) => {
     try {
@@ -55,6 +58,17 @@ export const addknowledge = async (req, res) => {
     }
 }
 
+export const findSimilarVector = async (vector) => {
+    const result = await pineconeIndex.query({
+        vector,
+        topK: 1,
+        includeMetadata: true,
+        includeValues: false
+    });
+
+    return result.matches?.[0] || null;
+};
+
 export const uploadpdf = async (req, res) => {
     try {
         if (!req.file) {
@@ -70,18 +84,37 @@ export const uploadpdf = async (req, res) => {
         let uploadedArticlesCount = 0;
         let uploadedData = [];
         let totalArticles = parsedContent.length;
+        let duplicateCount = 0;
+        let skippedCount = 0;
+        let duplicateArticles = [];
+        let skippedArticles = [];
+        const similarityThreshold = process.env.SIMILARITY_THRESHOLD;
 
         for (const article of parsedContent) {
-            const knowledgeArticle = await KnowledgeArticle.create({
-                title: article.title,
-                content: article.content,
-                url: article.url
-            })
+            const fingerprint = generateFingerprint({ title: article.title, content: article.content, url: article.url });
 
             const textContent = `${article.title}\n\n${article.content}`;
             const vector = await getVectorFromText(textContent);
+            const similarVector = await findSimilarVector(vector);
+            if (similarVector.score > similarityThreshold) {
+                skippedCount++;
+                skippedArticles.push(article);
+                continue;
+            }
             if (vector.length == 0) {
                 console.error("embedding not generated for pdf ")
+            }
+
+            const knowledgeArticle = await KnowledgeArticle.create({
+                title: article.title,
+                content: article.content,
+                url: article.url,
+                fingerprint: fingerprint,
+            })
+            if (knowledgeArticle) {
+                duplicateCount++;
+                duplicateArticles.push(article);
+                continue;
             }
 
             const result = await upsertVectors(vector, knowledgeArticle._id.toString(), {
@@ -102,11 +135,24 @@ export const uploadpdf = async (req, res) => {
         }
         console.log("uploaded articles count", uploadedArticlesCount);
         console.log("total articles", totalArticles);
+        console.log("duplicate count", duplicateCount);
+        console.log("skipped count", skippedCount);
+        console.log("duplicate articles", duplicateArticles);
+        console.log("skipped articles", skippedArticles);
+        const summaryData = {
+            uploadedArticlesCount,
+            totalArticles,
+            duplicateCount,
+            skippedCount,
+            duplicateArticles,
+            skippedArticles,
+            uploadedData
+        }
 
         return res.status(200).json({
             success: true,
             message: "pdf uploaded successfully",
-            data: uploadedData,
+            data: summaryData,
         });
     } catch (error) {
         console.error("error in uploading pdf:", error);
